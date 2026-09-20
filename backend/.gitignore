@@ -1,0 +1,4 @@
+node_modules/
+ledger.db
+ledger.db.*
+.env

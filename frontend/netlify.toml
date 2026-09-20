@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA 路由 fallback：/transactions、/stats 等刷新不 404
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
