@@ -123,7 +123,7 @@ export default function Dashboard() {
 export function TxRow({ tx, onEdit, onDelete }) {
   const tags = parseTags(tx.tags);
   return (
-    <div className="d-flex align-items-center gap-3 py-2 border-bottom tx-row" onClick={() => onEdit?.()}>
+    <div className="d-flex align-items-center gap-3 py-2 border-bottom tx-row tx-list-row" onClick={() => onEdit?.()}>
       <span className="tx-icon">{tx.category_icon || (tx.account_icon || '📦')}</span>
       <div className="flex-grow-1" style={{ minWidth: 0 }}>
         <div className="d-flex align-items-center gap-2">

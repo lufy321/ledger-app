@@ -93,7 +93,7 @@ export default function Categories() {
       <div className="row g-3">
         {categories.map((c) => (
           <div key={c.id} className="col-6 col-md-3">
-            <div className="card p-3 h-100 tx-row" onClick={() => openEdit(c)}>
+            <div className="card p-3 h-100 category-card" onClick={() => openEdit(c)}>
               <div className="d-flex align-items-center gap-2">
                 <span className="category-icon-chip" style={{ background: c.color }}>{c.icon}</span>
                 <div className="flex-grow-1" style={{ minWidth: 0 }}>
