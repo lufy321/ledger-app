@@ -1,0 +1,9 @@
+[build]
+  command = "cd frontend && npm install && npm run build"
+  publish = "frontend/dist"
+
+# SPA 路由 fallback：/transactions、/stats 等刷新不 404
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
