@@ -332,11 +332,12 @@ app.get('/api/accounts', authMiddleware, (req, res) => {
 });
 
 app.post('/api/accounts', authMiddleware, (req, res) => {
-  const { name, type, initial_balance, icon } = req.body;
+  const { name, type, icon } = req.body;
+  const bal = req.body.balance ?? req.body.initial_balance ?? 0;
   if (!name) return res.status(400).json({ error: 'Name is required' });
   const id = uuidv4();
   run('INSERT INTO accounts (id, user_id, name, type, initial_balance, icon, balance) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [id, req.user.id, name, type || 'cash', initial_balance || 0, icon || '🏦', initial_balance || 0]);
+    [id, req.user.id, name, type || 'cash', bal, icon || '🏦', bal]);
   saveDatabase();
   const account = queryGet('SELECT * FROM accounts WHERE id = ?', [id]);
   res.status(201).json(account);
