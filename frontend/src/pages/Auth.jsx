@@ -49,75 +49,116 @@ export default function Auth({ onLogin }) {
 
   return (
     <div className="auth-page">
-      <div className="auth-card">
-        <div className="text-center mb-4">
-          <div style={{ fontSize: '3rem' }}>📒</div>
-          <h3 className="fw-bold mt-2 mb-0">记账本</h3>
-          <p className="text-secondary small mb-0">多端同步，随时随地记录收支</p>
+      <div className="auth-glow auth-glow-1" aria-hidden />
+      <div className="auth-glow auth-glow-2" aria-hidden />
+
+      <div className="auth-card card">
+        <div className="auth-header">
+          <div className="auth-logo">
+            <span aria-hidden>📒</span>
+          </div>
+          <h1 className="auth-title">记账本</h1>
+          <p className="auth-subtitle">多端同步，随时随地记录收支</p>
         </div>
 
-        <div className="btn-group w-100 mb-3" role="group">
+        <div className="auth-tabs" role="tablist">
           <button
             type="button"
-            className={`btn flex-fill ${mode === 'login' ? 'btn-primary' : 'btn-outline-secondary'}`}
+            role="tab"
+            aria-selected={mode === 'login'}
+            className={`auth-tab ${mode === 'login' ? 'active' : ''}`}
             onClick={() => switchMode('login')}
           >
             登录
           </button>
           <button
             type="button"
-            className={`btn flex-fill ${mode === 'register' ? 'btn-primary' : 'btn-outline-secondary'}`}
+            role="tab"
+            aria-selected={mode === 'register'}
+            className={`auth-tab ${mode === 'register' ? 'active' : ''}`}
             onClick={() => switchMode('register')}
           >
             注册
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          {error && <div className="alert alert-danger py-2 small">{error}</div>}
+        <form className="auth-form" onSubmit={handleSubmit}>
+          {error && <div className="auth-error">{error}</div>}
 
-          <div className="mb-3">
-            <label className="form-label fw-bold">邮箱</label>
-            <input
-              type="email"
-              className="form-control"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-            />
-          </div>
-
-          {mode === 'register' && (
-            <div className="mb-3">
-              <label className="form-label fw-bold">用户名</label>
+          <div className="auth-field">
+            <label className="auth-label" htmlFor="auth-email">邮箱</label>
+            <div className="auth-input-wrap">
+              <i className="bi bi-envelope auth-input-icon" aria-hidden />
               <input
-                type="text"
-                className="form-control"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="你的昵称"
+                id="auth-email"
+                type="email"
+                className="form-control auth-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
                 required
               />
             </div>
-          )}
-
-          <div className="mb-3">
-            <label className="form-label fw-bold">密码</label>
-            <input
-              type="password"
-              className="form-control"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={mode === 'register' ? '至少 6 位' : '请输入密码'}
-              required
-            />
           </div>
 
-          <button type="submit" className="btn btn-primary w-100" disabled={loading}>
-            {loading ? '...' : mode === 'login' ? '登录' : '注册'}
+          {mode === 'register' && (
+            <div className="auth-field">
+              <label className="auth-label" htmlFor="auth-username">用户名</label>
+              <div className="auth-input-wrap">
+                <i className="bi bi-person auth-input-icon" aria-hidden />
+                <input
+                  id="auth-username"
+                  type="text"
+                  className="form-control auth-input"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="你的昵称"
+                  autoComplete="nickname"
+                  required
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="auth-field">
+            <label className="auth-label" htmlFor="auth-password">密码</label>
+            <div className="auth-input-wrap">
+              <i className="bi bi-lock auth-input-icon" aria-hidden />
+              <input
+                id="auth-password"
+                type="password"
+                className="form-control auth-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={mode === 'register' ? '至少 6 位' : '请输入密码'}
+                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                required
+              />
+            </div>
+          </div>
+
+          <button type="submit" className="auth-submit" disabled={loading}>
+            {loading ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" />
+                请稍候…
+              </>
+            ) : mode === 'login' ? '登 录' : '注 册'}
           </button>
+
+          <p className="auth-switch-hint">
+            {mode === 'login' ? '还没有账号？' : '已有账号？'}
+            <a className="auth-switch-link" onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}>
+              {mode === 'login' ? '去注册' : '去登录'}
+            </a>
+          </p>
         </form>
+      </div>
+
+      <div className="auth-footnote">
+        <i className="bi bi-shield-check me-1" aria-hidden />
+        数据加密存储，仅自己可见
       </div>
     </div>
   );

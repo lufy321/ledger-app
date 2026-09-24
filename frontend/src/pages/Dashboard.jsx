@@ -85,12 +85,17 @@ export default function Dashboard() {
             <h6 className="fw-bold mb-3">账户余额</h6>
             <div className="d-flex flex-wrap gap-2">
               {summary.accounts.map((a) => (
-                <div key={a.id} className="badge rounded-pill p-3" style={{ background: '#eef2f7' }}>
-                  <span className="me-1">{a.icon}</span>
-                  {a.name}
-                  <strong className="ms-2">{fmtMoney(a.balance)}</strong>
+                <div key={a.id} className="account-chip">
+                  <span className="account-chip-icon">{a.icon}</span>
+                  <div className="account-chip-body">
+                    <div className="account-chip-name">{a.name}</div>
+                    <div className={`account-chip-bal ${a.balance < 0 ? 'neg' : ''}`}>{fmtMoney(a.balance)}</div>
+                  </div>
                 </div>
               ))}
+              {summary.accounts.length === 0 && (
+                <span className="text-secondary small">还没有账户，去「账户」页创建一个吧</span>
+              )}
             </div>
           </div>
         </>
