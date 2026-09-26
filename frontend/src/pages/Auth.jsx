@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { authApi, setToken } from '../lib/api';
+import { useTheme } from '../components/ThemeContext.jsx';
 
 export default function Auth({ onLogin }) {
+  const { theme, toggle } = useTheme();
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -49,6 +51,14 @@ export default function Auth({ onLogin }) {
 
   return (
     <div className="auth-page">
+      <button
+        type="button"
+        className="btn btn-icon auth-theme-toggle"
+        onClick={toggle}
+        title={theme === 'dark' ? '切换为日间模式' : '切换为夜间模式'}
+      >
+        <i className={`bi ${theme === 'dark' ? 'bi-sun' : 'bi-moon'}`} />
+      </button>
       <div className="auth-glow auth-glow-1" aria-hidden />
       <div className="auth-glow auth-glow-2" aria-hidden />
 

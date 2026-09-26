@@ -4,6 +4,7 @@ import initSqlJs from 'sql.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
+import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -16,6 +17,11 @@ const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'ledger.db');
 
 app.use(cors());
 app.use(express.json());
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+});
 
 // ============ DATABASE SETUP (sql.js) ============
 
@@ -578,7 +584,13 @@ app.get('/api/stats/budget-progress', authMiddleware, (req, res) => {
   res.json(results);
 });
 
-// ============ EXPORT ROUTES ============
+// ============ EXPORT / IMPORT / OCR ROUTES ============
+
+function csvEscape(s) {
+  s = s == null ? '' : String(s);
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
 
 app.get('/api/export/csv', authMiddleware, (req, res) => {
   const { date_from, date_to, type } = req.query;
@@ -599,15 +611,306 @@ app.get('/api/export/csv', authMiddleware, (req, res) => {
 
   const header = '日期,类型,金额,分类,账户,备注,标签';
   const csvRows = rows.map(r =>
-    [r.date, r.type === 'income' ? '收入' : '支出', r.amount, r.category || '', r.account || '',
-     `"${(r.description || '').replace(/"/g, '""')}"`, r.tags || ''].join(',')
+    [r.date, r.type === 'income' ? '收入' : '支出', r.amount,
+     csvEscape(r.category), csvEscape(r.account),
+     csvEscape(r.description), csvEscape(r.tags)].join(',')
   );
 
   const csv = '\uFEFF' + [header, ...csvRows].join('\n');
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', 'attachment; filename=ledger-export.csv');
+  res.setHeader('Content-Disposition', `attachment; filename=ledger-export-${req.query.date_from || new Date().toISOString().slice(0, 10)}.csv`);
   res.send(csv);
 });
+
+// ============ IMPORT ROUTE ============
+
+function parseCsv(text) {
+  // Remove BOM
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+
+  const parseLine = (line) => {
+    const cells = [];
+    let cur = '', inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuote) {
+        if (ch === '"') {
+          if (line[i + 1] === '"') { cur += '"'; i++; }
+          else inQuote = false;
+        } else cur += ch;
+      } else {
+        if (ch === '"') inQuote = true;
+        else if (ch === ',') { cells.push(cur); cur = ''; }
+        else cur += ch;
+      }
+    }
+    cells.push(cur);
+    return cells;
+  };
+
+  const header = parseLine(lines[0]).map(h => h.trim());
+  const expectedCols = ['日期', '类型', '金额', '分类', '账户', '备注', '标签'];
+  const colMap = {};
+  expectedCols.forEach((name, idx) => {
+    const realIdx = header.indexOf(name);
+    colMap[name] = realIdx !== -1 ? realIdx : idx;
+  });
+
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cells = parseLine(lines[i]);
+    const get = (name) => {
+      const idx = colMap[name];
+      return idx < cells.length ? cells[idx].trim() : '';
+    };
+
+    const date = get('日期');
+    const typeStr = get('类型');
+    const amountStr = get('金额');
+    const amount = parseFloat(amountStr.replace(/[¥,，￥\s\uFFFD]/g, ''));
+
+    if (!date || !amount || isNaN(amount)) continue;
+
+    const type = typeStr === '收入' || typeStr === 'income' ? 'income' : 'expense';
+    // Tags are exported as a JSON array string; unwrap it, otherwise split plain comma lists
+    let tags = null;
+    const tagsStr = get('标签').trim();
+    if (tagsStr) {
+      if (tagsStr.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(tagsStr);
+          if (Array.isArray(parsed)) tags = parsed.filter(Boolean);
+        } catch { /* fall through to comma split */ }
+      }
+      if (!tags) tags = tagsStr.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+    }
+
+    rows.push({
+      type,
+      amount,
+      date,
+      category: get('分类'),
+      account: get('账户'),
+      description: get('备注'),
+      tags,
+    });
+  }
+  return rows;
+}
+
+app.post('/api/import/csv', authMiddleware, upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: '请上传 CSV 文件' });
+  }
+
+  // Detect encoding: try utf-8 first, fall back to gbk-like
+  let text = req.file.buffer.toString('utf-8');
+  if (text.includes('\uFFFD')) {
+    // Likely GBK encoded, but sql.js doesn't have a native GBK decoder
+    // Try to salvage: strip replacement chars
+    text = text.replace(/\uFFFD/g, '');
+  }
+
+  const rows = parseCsv(text);
+  if (rows.length === 0) {
+    return res.status(400).json({ error: '未找到有效数据行，请检查文件格式' });
+  }
+
+  let imported = 0, skipped = 0, failed = 0;
+  const errors = [];
+
+  // Preload categories and accounts for name lookup
+  const cats = queryAll('SELECT id, name, type FROM categories WHERE user_id = ?', [req.user.id]);
+  const accts = queryAll('SELECT id, name FROM accounts WHERE user_id = ?', [req.user.id]);
+
+  for (const row of rows) {
+    try {
+      // Look up category by name
+      let categoryId = null;
+      if (row.category) {
+        const cat = cats.find(c => c.name === row.category && c.type === row.type) ||
+                       cats.find(c => c.name === row.category);
+        if (cat) categoryId = cat.id;
+        else if (row.category && row.category !== '未分类' && row.category !== '其他') {
+          // Create new category
+          const newId = uuidv4();
+          run('INSERT INTO categories (id, user_id, name, type, icon, color) VALUES (?, ?, ?, ?, ?, ?)',
+            [newId, req.user.id, row.category, row.type, '🏷️', '#6c757d']);
+          categoryId = newId;
+          cats.push({ id: newId, name: row.category, type: row.type });
+        }
+      }
+
+      // Look up account by name
+      let accountId = null;
+      if (row.account) {
+        const acc = accts.find(a => a.name === row.account);
+        if (acc) accountId = acc.id;
+      }
+
+      const tagsStr = row.tags ? JSON.stringify(row.tags) : '';
+      run('INSERT INTO transactions (id, user_id, type, amount, category_id, account_id, description, tags, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [uuidv4(), req.user.id, row.type, row.amount, categoryId, accountId, row.description || '', tagsStr, row.date]);
+
+      if (accountId) {
+        const delta = row.type === 'expense' ? -row.amount : row.amount;
+        run("UPDATE accounts SET balance = balance + ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?",
+          [delta, accountId, req.user.id]);
+      }
+      imported++;
+    } catch (e) {
+      failed++;
+      errors.push(`第${imported + failed}行: ${e.message}`);
+    }
+  }
+
+  saveDatabase();
+  res.json({ imported, skipped, failed, total: rows.length, errors: errors.slice(0, 10) });
+});
+
+// ============ OCR ROUTE (tesseract.js) ============
+
+let tesseractPromise = null;
+function getTesseract() {
+  if (!tesseractPromise) {
+    tesseractPromise = import('tesseract.js').then(mod => {
+      const Tesseract = mod.default || mod;
+      return Tesseract.createWorker('chi_sim+eng');
+    });
+  }
+  return tesseractPromise;
+}
+
+app.post('/api/ocr', authMiddleware, upload.single('image'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: '请上传图片' });
+  }
+
+  try {
+    const worker = await getTesseract();
+    const { data } = await worker.recognize(req.file.buffer);
+    const text = data.text || '';
+
+    if (!text.trim()) {
+      return res.json({ text: '', transactions: [] });
+    }
+
+    // Parse receipt-like text into transactions
+    const transactions = parseReceiptText(text);
+    res.json({ text, transactions });
+  } catch (e) {
+    console.error('OCR error:', e.message);
+    res.status(500).json({ error: `图片识别失败: ${e.message}` });
+  }
+});
+
+function parseReceiptText(text) {
+  const transactions = [];
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+  // Pattern 1: date + amount lines like "2024-01-15  35.50"
+  // Pattern 2: Chinese date like "1月15日"
+  // Pattern 3: common receipt patterns with amount at end
+
+  const datePatterns = [
+    /(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}日?)/,
+    /(\d{1,2}月\d{1,2}日)/,
+    /(\d{4}-\d{2}-\d{2})/,
+  ];
+  const amountPatterns = [
+    /(?:金额|合计|总计|实付|应付|消费|价格|price|total|amount)[^\d]*?([\d,]+\.?\d*)/i,
+    /(?:¥|￥|元|\bRMB\b)\s*([\d,]+\.?\d*)/i,
+    /\b([\d,]+\.\d{2})\b/,
+  ];
+
+  let currentDate = null;
+  let currentText = null;
+
+  for (const line of lines) {
+    // Try to detect date
+    for (const dp of datePatterns) {
+      const m = line.match(dp);
+      if (m) {
+        currentDate = normalizeDate(m[1]);
+        break;
+      }
+    }
+
+    // Try to detect amount
+    let amount = null;
+    let type = 'expense';
+    let desc = line;
+
+    for (const ap of amountPatterns) {
+      const m = line.match(ap);
+      if (m) {
+        amount = parseFloat(m[1].replace(/,/g, ''));
+        // Clean description: remove the matched amount
+        desc = line.replace(ap, '').replace(/[\s|·,，:：]+/g, ' ').trim();
+        if (!desc) desc = '消费';
+        break;
+      }
+    }
+
+    // Detect income keywords
+    if (/工资|薪资|salary|奖金|bonus|利息|利息收入|退款|rebate/i.test(line)) {
+      type = 'income';
+    }
+    if (/退款|退费|refund/i.test(line)) {
+      type = 'income';
+    }
+
+    if (amount && amount > 0) {
+      transactions.push({
+        type,
+        amount,
+        date: currentDate || todayStr(),
+        description: desc.slice(0, 100),
+      });
+    }
+  }
+
+  // Fallback: if no structured items but text has amounts, create one entry
+  if (transactions.length === 0) {
+    const allAmounts = text.match(/([\d,]+\.\d{2})/g);
+    if (allAmounts) {
+      const amounts = allAmounts.map(a => parseFloat(a.replace(/,/g, ''))).filter(a => a > 0);
+      const total = amounts.reduce((s, a) => s + a, 0);
+      if (total > 0) {
+        transactions.push({
+          type: 'expense',
+          amount: total,
+          date: todayStr(),
+          description: text.slice(0, 80) || '图片记录',
+        });
+      }
+    }
+  }
+
+  return transactions;
+}
+
+function normalizeDate(s) {
+  if (!s) return todayStr();
+  // 2024-01-15 or 2024/01/15 or 2024年1月15日
+  let m = s.match(/(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})日?/);
+  if (m) {
+    return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  }
+  // 1月15日 (no year — assume current year)
+  m = s.match(/(\d{1,2})月(\d{1,2})日/);
+  if (m) {
+    const y = new Date().getFullYear();
+    return `${y}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+  }
+  return todayStr();
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 // Error handling
 app.use((err, req, res, next) => {

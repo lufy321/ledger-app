@@ -97,9 +97,9 @@ export default function TransactionModal({ transaction, onSaved, onClose }) {
   };
 
   const typeBtns = [
-    { v: 'expense', label: '支出', icon: 'bi-arrow-down-left', color: '#ff6b6b' },
-    { v: 'income', label: '收入', icon: 'bi-arrow-up-right', color: '#51cf66' },
-    { v: 'transfer', label: '转账', icon: 'bi-arrow-left-right', color: '#339af0' },
+    { v: 'expense', label: '支出', icon: 'bi-arrow-down-left', color: 'var(--expense)' },
+    { v: 'income', label: '收入', icon: 'bi-arrow-up-right', color: 'var(--income)' },
+    { v: 'transfer', label: '转账', icon: 'bi-arrow-left-right', color: 'var(--primary)' },
   ];
 
   return (
@@ -109,7 +109,7 @@ export default function TransactionModal({ transaction, onSaved, onClose }) {
       role="dialog"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="modal-dialog modal-dialog-centered tx-modal-dialog" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-dialog modal-dialog-centered modal-fullscreen-sm-down tx-modal-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="modal-content" style={{ borderRadius: 12 }}>
           <div className="modal-header" style={{ borderRadius: '12px 12px 0 0' }}>
             <h5 className="modal-title fw-bold">{transaction?.id ? '编辑记录' : '记一笔'}</h5>
@@ -198,7 +198,7 @@ export default function TransactionModal({ transaction, onSaved, onClose }) {
                             width: 46,
                             height: 46,
                             fontSize: '1.2rem',
-                            background: categoryId === c.id ? c.color : c.color + '20',
+                            background: categoryId === c.id ? c.color : c.color + '1f',
                             border: `2px solid ${categoryId === c.id ? c.color : 'transparent'}`,
                           }}
                           onClick={() => setCategoryId(categoryId === c.id ? '' : c.id)}

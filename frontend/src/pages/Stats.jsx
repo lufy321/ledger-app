@@ -4,10 +4,14 @@ import {
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import { statsApi, currentMonth, fmtMoney } from '../lib/api';
+import { useTheme } from '../components/ThemeContext.jsx';
 
-const CHART_COLORS = ['#ff6b6b', '#ffa94d', '#845ef7', '#339af0', '#f06595', '#20c997', '#7952b3', '#4dabf7', '#51cf66', '#94d82d', '#12b886', '#63e6be', '#adb5bd', '#fa5252', '#e8590c', '#6741d9'];
+const CHART_COLORS_LIGHT = ['#ff6b6b', '#ffa94d', '#845ef7', '#339af0', '#f06595', '#20c997', '#7952b3', '#4dabf7', '#51cf66', '#94d82d', '#12b886', '#63e6be', '#adb5bd', '#fa5252', '#e8590c', '#6741d9'];
+const CHART_COLORS_DARK = ['#ff8787', '#ffa94d', '#9775fa', '#4dabf7', '#faa2c1', '#38d9a9', '#9775fa', '#74c0fc', '#69db7c', '#a9e34b', '#20c997', '#66d9e8', '#868e96', '#ff6b6b', '#fd7e14', '#845ef7'];
 
 export default function Stats() {
+  const { theme } = useTheme();
+  const CHART_COLORS = theme === 'dark' ? CHART_COLORS_DARK : CHART_COLORS_LIGHT;
   const [month, setMonth] = useState(currentMonth());
   const [byCategory, setByCategory] = useState([]);
   const [byMonth, setByMonth] = useState([]);
@@ -119,7 +123,7 @@ export default function Stats() {
                           <div className="budget-bar" style={{ height: 10 }}>
                             <div
                               className="budget-bar-fill"
-                              style={{ width: `${pct}%`, background: over ? '#ff6b6b' : b.category_color || '#51cf66' }}
+                              style={{ width: `${pct}%`, background: over ? 'var(--expense)' : b.category_color || 'var(--income)' }}
                             />
                           </div>
                         </div>
@@ -136,13 +140,13 @@ export default function Stats() {
             <h6 className="fw-bold mb-3">近 12 个月收支对比</h6>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={byMonth} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${v / 1000}k`} />
+                <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#2d333d' : '#e9ecef'} />
+                <XAxis dataKey="month" tick={{ fontSize: 12, fill: theme === 'dark' ? '#8b95a3' : '#6c757d' }} stroke={theme === 'dark' ? '#2d333d' : '#e9ecef'} />
+                <YAxis tick={{ fontSize: 12, fill: theme === 'dark' ? '#8b95a3' : '#6c757d' }} stroke={theme === 'dark' ? '#2d333d' : '#e9ecef'} tickFormatter={(v) => `${v / 1000}k`} />
                 <Tooltip formatter={(v) => fmtMoney(v)} />
                 <Legend />
-                <Bar dataKey="income" name="收入" fill="#51cf66" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expense" name="支出" fill="#ff6b6b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="income" name="收入" fill="var(--income)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expense" name="支出" fill="var(--expense)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -172,7 +176,7 @@ export default function Stats() {
                         <td>{pct.toFixed(1)}%</td>
                         <td style={{ width: '30%' }}>
                           <div className="budget-bar" style={{ height: 8 }}>
-                            <div className="budget-bar-fill" style={{ width: `${pct}%`, background: c.color || '#339af0' }} />
+                            <div className="budget-bar-fill" style={{ width: `${pct}%`, background: c.color || 'var(--primary)' }} />
                           </div>
                         </td>
                       </tr>

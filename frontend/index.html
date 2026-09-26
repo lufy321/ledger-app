@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📒</text></svg>" />
     <title>记账本 - Ledger</title>
+    <script>
+      // 在 React 挂载前应用主题，避免刷新时先白屏再闪成暗色。
+      // ThemeProvider 挂载后会接管（含手动切换 + 跟随系统）。
+      (function () {
+        try {
+          var t = localStorage.getItem('ledger_theme') ||
+            (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          document.documentElement.setAttribute('data-bs-theme', t);
+          document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

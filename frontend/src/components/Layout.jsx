@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App.jsx';
+import { useTheme } from './ThemeContext.jsx';
 
 const NAV = [
   { to: '/', icon: 'bi-speedometer2', label: '首页' },
@@ -13,6 +14,7 @@ const NAV = [
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
+  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -26,9 +28,17 @@ export default function Layout({ children }) {
     <div className="d-flex">
       {/* Desktop sidebar */}
       <div className="sidebar d-none d-lg-flex flex-column" style={{ width: 220 }}>
-        <div className="p-3 d-flex align-items-center gap-2" style={{ borderBottom: '1px solid #e9ecef' }}>
+        <div className="p-3 d-flex align-items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
           <span className="fs-3">📒</span>
           <span className="fw-bold fs-5">记账本</span>
+          <button
+            type="button"
+            className="btn btn-icon ms-auto"
+            onClick={toggle}
+            title={theme === 'dark' ? '切换为日间模式' : '切换为夜间模式'}
+          >
+            <i className={`bi ${theme === 'dark' ? 'bi-sun' : 'bi-moon'}`} />
+          </button>
         </div>
         <nav className="flex-grow-1 p-2">
           {NAV.map((item) => (
@@ -47,7 +57,7 @@ export default function Layout({ children }) {
             </NavLink>
           ))}
         </nav>
-        <div className="p-3" style={{ borderTop: '1px solid #e9ecef' }}>
+        <div className="p-3" style={{ borderTop: '1px solid var(--border)' }}>
           <div className="d-flex justify-content-between align-items-center">
             <div className="text-truncate" title={user.username}>
               <i className="bi bi-person-circle me-1" />
@@ -69,15 +79,25 @@ export default function Layout({ children }) {
           <span className="fw-bold">
             <span className="me-1">📒</span>记账本
           </span>
-          <button
-            type="button"
-            className={`mobile-menu-btn btn btn-light ${menuOpen ? 'active' : ''}`}
-            aria-expanded={menuOpen}
-            aria-controls="mobile-menu"
-            onClick={() => setMenuOpen(!menuOpen)}
-          >
-            <i className="bi bi-list" />
-          </button>
+          <div className="d-flex align-items-center gap-1">
+            <button
+              type="button"
+              className="btn btn-icon"
+              onClick={toggle}
+              title={theme === 'dark' ? '切换为日间模式' : '切换为夜间模式'}
+            >
+              <i className={`bi ${theme === 'dark' ? 'bi-sun' : 'bi-moon'}`} />
+            </button>
+            <button
+              type="button"
+              className={`mobile-menu-btn btn btn-icon ${menuOpen ? 'active' : ''}`}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-menu"
+              onClick={() => setMenuOpen(!menuOpen)}
+            >
+              <i className="bi bi-list" />
+            </button>
+          </div>
 
           {menuOpen && (
             <>
@@ -101,6 +121,11 @@ export default function Layout({ children }) {
                     {item.label}
                   </NavLink>
                 ))}
+                <hr className="my-1" />
+                <button className="mobile-menu-item" onClick={toggle}>
+                  <i className={`bi ${theme === 'dark' ? 'bi-sun' : 'bi-moon'} me-2`} />
+                  {theme === 'dark' ? '日间模式' : '夜间模式'}
+                </button>
                 <hr className="my-1" />
                 <button className="mobile-menu-item" onClick={doLogout}>
                   <i className="bi bi-box-arrow-right me-2" />

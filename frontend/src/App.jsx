@@ -10,6 +10,7 @@ import Budgets from './pages/Budgets.jsx';
 import Categories from './pages/Categories.jsx';
 import Stats from './pages/Stats.jsx';
 import Auth from './pages/Auth.jsx';
+import { ThemeProvider } from './components/ThemeContext.jsx';
 
 const AuthCtx = createContext(null);
 export const useAuth = () => useContext(AuthCtx);
@@ -41,33 +42,31 @@ export default function App() {
     setUser(null);
   };
 
-  if (checking) {
-    return (
-      <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">加载中...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Auth onLogin={login} />;
-  }
-
   return (
-    <AuthCtx.Provider value={{ user, login, logout }}>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/transactions" element={<Transactions />} />
-          <Route path="/accounts" element={<Accounts />} />
-          <Route path="/budgets" element={<Budgets />} />
-          <Route path="/categories" element={<Categories />} />
-          <Route path="/stats" element={<Stats />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Layout>
-    </AuthCtx.Provider>
+    <ThemeProvider>
+      {checking ? (
+        <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">加载中...</span>
+          </div>
+        </div>
+      ) : !user ? (
+        <Auth onLogin={login} />
+      ) : (
+        <AuthCtx.Provider value={{ user, login, logout }}>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/transactions" element={<Transactions />} />
+              <Route path="/accounts" element={<Accounts />} />
+              <Route path="/budgets" element={<Budgets />} />
+              <Route path="/categories" element={<Categories />} />
+              <Route path="/stats" element={<Stats />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Layout>
+        </AuthCtx.Provider>
+      )}
+    </ThemeProvider>
   );
 }

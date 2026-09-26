@@ -1,18 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { accountApi, fmtMoney } from '../lib/api';
+import { useTheme } from '../components/ThemeContext.jsx';
 
-const TYPES = {
+const TYPES_LIGHT = {
   cash: { label: '现金', color: '#51cf66', defaultIcon: '💵' },
   alipay: { label: '支付宝', color: '#339af0', defaultIcon: '📱' },
   wechat: { label: '微信', color: '#20c997', defaultIcon: '💬' },
   bank: { label: '银行卡', color: '#ffa94d', defaultIcon: '🏦' },
   credit: { label: '信用卡', color: '#845ef7', defaultIcon: '💳' },
-  other: { label: '其他', color: '#adb5bd', defaultIcon: '💰' },
+  other: { label: '其他', color: '#868e96', defaultIcon: '💰' },
+};
+
+const TYPES_DARK = {
+  cash: { label: '现金', color: '#69db7c', defaultIcon: '💵' },
+  alipay: { label: '支付宝', color: '#4dabf7', defaultIcon: '📱' },
+  wechat: { label: '微信', color: '#38d9a9', defaultIcon: '💬' },
+  bank: { label: '银行卡', color: '#ffa94a', defaultIcon: '🏦' },
+  credit: { label: '信用卡', color: '#9775fa', defaultIcon: '💳' },
+  other: { label: '其他', color: '#868e96', defaultIcon: '💰' },
 };
 
 const ICONS = ['💵', '📱', '💬', '🏦', '💳', '💰', '🏠', '🎮'];
 
 export default function Accounts() {
+  const TYPES = useTheme().theme === 'dark' ? TYPES_DARK : TYPES_LIGHT;
   const [accounts, setAccounts] = useState([]);
   const [modal, setModal] = useState(null); // {account, form}
   const [error, setError] = useState('');
